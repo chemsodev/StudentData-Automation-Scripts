@@ -1,0 +1,16 @@
+{
+    "page_url": "https://finfo.usthb.dz/index.php/listes-etudiants-m2/",
+    "google_sheets_credentials": "path_to_service_account_json",
+    "mysql": {
+        "host": "your_host",
+        "user": "your_user",
+        "password": "your_password",
+        "database": "your_database",
+        "port": 3306,
+        "ssl_ca": "path_to_ssl_cert",
+        "ssl_disabled": false
+    },
+    "required_columns": ["N°", "Palier", "Spécialité", "Section", "Matricule", "Nom", "Prénom", "Etat", "Groupe TD"],
+    "batch_size": 5,
+    "delay_between_batches": 5
+}
