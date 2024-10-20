@@ -37,7 +37,7 @@ def connect_to_database(mysql_config):
 
 # Function to insert speciality data if it doesn't already exist
 def insert_or_get_speciality_id(cursor, palier, specialite):
-    select_query = "SELECT id FROM specialities WHERE palier = %s AND specialite = %s"
+    select_query = "SELECT id FROM speciality WHERE palier = %s AND specialite = %s"
     cursor.execute(select_query, (palier, specialite))
     result = cursor.fetchone()
 
@@ -45,13 +45,13 @@ def insert_or_get_speciality_id(cursor, palier, specialite):
         return result[0]  # Return the existing id
 
     # Insert new speciality if not found
-    insert_query = "INSERT INTO specialities (palier, specialite) VALUES (%s, %s)"
+    insert_query = "INSERT INTO speciality (palier, specialite) VALUES (%s, %s)"
     cursor.execute(insert_query, (palier, specialite))
     return cursor.lastrowid  # Return the newly inserted id
 
 # Function to insert section data if it doesn't already exist
 def insert_or_get_section_id(cursor, section_name):
-    select_query = "SELECT id FROM sections WHERE section_name = %s"
+    select_query = "SELECT id FROM section WHERE section_name = %s"
     cursor.execute(select_query, (section_name,))
     result = cursor.fetchone()
 
@@ -59,15 +59,25 @@ def insert_or_get_section_id(cursor, section_name):
         return result[0]  # Return the existing id
 
     # Insert new section if not found
-    insert_query = "INSERT INTO sections (section_name) VALUES (%s)"
+    insert_query = "INSERT INTO section (section_name) VALUES (%s)"
     cursor.execute(insert_query, (section_name,))
     return cursor.lastrowid  # Return the newly inserted id
 
+# Function to generate student emails
+def generate_emails(prenom, nom):
+    prenom = prenom.strip().lower().replace(' ', '-')
+    nom = nom.strip().lower().replace(' ', '-')
+    email_1 = f"{prenom}.{nom}@etu.usthb.dz"
+    email_2 = f"{prenom}-{nom}@etu.usthb.dz"
+    return email_1, email_2
+
 # Function to insert student data into the database
 def insert_student(cursor, student, speciality_id, section_id):
+    email_1, email_2 = generate_emails(student['Prénom'], student['Nom'])
+
     insert_query = """
-    INSERT INTO students (matricule, nom, prenom, etat, groupe_td, speciality_id, section_id, number)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO student (matricule, nom, prenom, etat, groupe_td, speciality_id, section_id, number, email_1, email_2)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     cursor.execute(insert_query, (
         student['Matricule'],
@@ -78,6 +88,8 @@ def insert_student(cursor, student, speciality_id, section_id):
         speciality_id,
         section_id,
         student['N°'],
+        email_1,
+        email_2
     ))
 
 # Function to process sheets and insert data
@@ -91,17 +103,17 @@ def process_sheets(sheet_urls, required_columns, batch_size, delay_between_batch
             try:
                 spreadsheet = client.open_by_url(url)
                 sheet = spreadsheet.get_worksheet(0)
-                headers = [header.strip() for header in sheet.row_values(9) if header.strip()]
+                headers = sheet.row_values(9)[:9]  # Only fetch the first 9 columns
+
+                all_rows = sheet.get_all_values()[10:]  # Starting from the row after headers
 
                 filtered_data = []
-                for row in sheet.get_all_values()[9:]:
-                    filtered_record = {header: row[index] if index < len(row) else None for index, header in
-                                       enumerate(headers) if index < len(required_columns)}
+                for row in all_rows:
+                    # Limit each row to the first 9 columns
+                    filtered_record = {headers[index]: row[index] if index < len(row) else None for index in range(9)}
+                    filtered_data.append(filtered_record)
 
-                    if all(col in filtered_record for col in required_columns):
-                        filtered_data.append(filtered_record)
-
-                print(f"\nData from {url}:")
+                print(f"\nProcessing data from {url}:")
                 for index, student in enumerate(filtered_data):
                     # Insert specialities and sections first, then get their IDs
                     speciality_id = insert_or_get_speciality_id(cursor, student['Palier'], student['Spécialité'])
@@ -109,10 +121,9 @@ def process_sheets(sheet_urls, required_columns, batch_size, delay_between_batch
 
                     # Insert student data
                     insert_student(cursor, student, speciality_id, section_id)
-
                     print(f"Record {index + 1}: {student}")
 
-                # Commit the transaction after processing each URL
+                # Commit changes to the database
                 db_connection.commit()
 
             except gspread.exceptions.APIError as e:
@@ -123,12 +134,10 @@ def process_sheets(sheet_urls, required_columns, batch_size, delay_between_batch
         print(f"Delaying for {delay_between_batches} seconds before the next batch...")
         time.sleep(delay_between_batches)
 
-    # Close the cursor and database connection
     cursor.close()
     db_connection.close()
 
 if __name__ == "__main__":
-    # Load configuration
     config = load_config()
 
     page_url = config["page_url"]
