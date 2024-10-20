@@ -1,6 +1,6 @@
-# StudentData-Automation-Scripts
+# Google Sheets Scraper and MySQL Data Inserter
 
-This Python script automates the process of scraping USTHB CS students data from Google Sheets URLs, processing the data, and inserting it into a MySQL database. It extracts Google Sheets URLs from a specified webpage, retrieves specific fields, checks for existing entries in the database, and inserts new student data into the appropriate tables.
+This Python script automates the process of scraping student data from Google Sheets URLs, processing the data, and inserting it into a MySQL database. It extracts Google Sheets URLs from a specified webpage, retrieves specific fields, checks for existing entries in the database, and inserts new student data into the appropriate tables.
 
 ## Features
 
